@@ -54,4 +54,15 @@ Restore from a boot script, a cron, or another machine over SSH.
 - Scenes restore windows to workspaces; multi-monitor workspace
   assignments follow however your workspaces are bound to monitors.
 
+## Development
+
+The planning logic is pure JavaScript in `Encore.js`, covered by a
+frameworkless test suite:
+
+```
+node tests/encore.test.mjs
+```
+
+QML lint: `qmllint -I /usr/share/omarchy/shell *.qml`
+
 MIT licensed.
