@@ -66,6 +66,9 @@ Restore from a boot script, a cron, or another machine over SSH.
 
 - Launch commands come from `/proc/<pid>/cmdline` at save time, with
   argument boundaries preserved — flags with spaces survive the round trip.
+- Working directories are saved too (read from the window's process, or
+  its shell child for terminals), so a restored terminal opens where it
+  lived, not in your home directory.
 - Chromium web apps are recognized by window class and relaunched through
   `omarchy-launch-webapp`.
 - Floating windows come back at their exact position and size; fullscreen

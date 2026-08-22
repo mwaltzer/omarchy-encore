@@ -217,14 +217,40 @@ Item {
     }
     // argv boundaries matter: an argument with spaces must survive the
     // round trip, so ship each cmdline as a JSON array, not a joined string.
+    // The working directory comes from the window process — or, when that
+    // reads "/" (terminals chdir there and run the user's shell as a
+    // child), from the first child with a real one.
     cmdProc.command = ["/usr/bin/python3", "-c",
-      'import sys, json, base64\n' +
+      'import sys, json, base64, os\n' +
+      'def cwd_of(p):\n' +
+      '    try:\n' +
+      '        return os.readlink("/proc/" + p + "/cwd")\n' +
+      '    except Exception:\n' +
+      '        return ""\n' +
+      'def best_cwd(p):\n' +
+      '    own = cwd_of(p)\n' +
+      '    if own and own != "/":\n' +
+      '        return own\n' +
+      '    try:\n' +
+      '        kids = open("/proc/%s/task/%s/children" % (p, p)).read().split()\n' +
+      '    except Exception:\n' +
+      '        kids = []\n' +
+      '    for k in kids:\n' +
+      '        c = cwd_of(k)\n' +
+      '        if c and c != "/":\n' +
+      '            return c\n' +
+      '    return own\n' +
       'for p in sys.argv[1:]:\n' +
       '    try:\n' +
       '        raw = open("/proc/" + p + "/cmdline", "rb").read()\n' +
       '        argv = [a.decode("utf-8", "replace") for a in raw.split(b"\\0") if a]\n' +
-      '        if argv:\n' +
-      '            print(p + "\\t" + base64.b64encode(json.dumps(argv).encode()).decode())\n' +
+      '        if not argv:\n' +
+      '            continue\n' +
+      '        entry = {"argv": argv}\n' +
+      '        d = best_cwd(p)\n' +
+      '        if d and d != "/":\n' +
+      '            entry["cwd"] = d\n' +
+      '        print(p + "\\t" + base64.b64encode(json.dumps(entry).encode()).decode())\n' +
       '    except Exception:\n' +
       '        pass'].concat(pids.map(function(p) { return String(p) }))
     cmdProc.running = true

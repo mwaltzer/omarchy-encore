@@ -42,15 +42,23 @@ function launchCommand(c, cmdByPid) {
     var host = m[1].replace(/_+$/, "").replace(/_/g, "/")
     if (host.length > 0) return "omarchy-launch-webapp https://" + host
   }
-  var argv = cmdByPid[String(c.pid)]
-  if (!argv) return ""
+  var entry = cmdByPid[String(c.pid)]
+  if (!entry) return ""
   // Control characters would break the Lua string the command is later
   // embedded in; no launchable command legitimately contains them.
-  if (typeof argv === "string") return argv.replace(/[\x00-\x1f]+/g, " ").trim()
+  if (typeof entry === "string") return entry.replace(/[\x00-\x1f]+/g, " ").trim()
+  var argv = entry.argv || entry
   var parts = []
   for (var i = 0; i < argv.length; i++)
     parts.push(quoteArg(String(argv[i]).replace(/[\x00-\x1f]+/g, " ")))
   return parts.join(" ").trim()
+}
+
+// The working directory recorded at save time, if any.
+function capturedCwd(c, cmdByPid) {
+  var entry = cmdByPid[String(c.pid)]
+  if (!entry || typeof entry === "string" || !entry.cwd) return ""
+  return String(entry.cwd).replace(/[\x00-\x1f]+/g, "").trim()
 }
 
 // ---------------------------------------------------------------- columns
@@ -122,7 +130,9 @@ function buildScene(name, clients, activeWorkspace, cmdByPid) {
     if (!capturable(c)) continue
     var cmd = launchCommand(c, cmdByPid)
     if (cmd.length === 0) continue
+    var cwd = capturedCwd(c, cmdByPid)
     windows.push({
+      cwd: cwd,
       "class": String(c["class"] || ""),
       initialClass: String(c.initialClass || ""),
       title: String(c.title || ""),
@@ -251,7 +261,10 @@ function buildRestorePlan(scene, currentClients, spawnedSlots, firstPass, baseli
     if (assigned[i] !== undefined) {
       adoptLines(wins[i], assigned[i], lines)
     } else if (!spawnedSlots[i]) {
-      lines.push(dispatchLine("hl.dsp.exec_cmd(" + luaQuote(wins[i].cmd) + ")"))
+      var launch = wins[i].cmd
+      // Bring terminals and friends back in the directory they lived in.
+      if (wins[i].cwd) launch = "cd " + shellQuote(wins[i].cwd) + " && " + launch
+      lines.push(dispatchLine("hl.dsp.exec_cmd(" + luaQuote(launch) + ")"))
       spawnedNow.push(i)
       unresolved++
     } else {

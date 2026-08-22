@@ -48,6 +48,21 @@ assert.equal(
 assert.ok(
   !E.launchCommand(client({ pid: 9 }), { "9": ["foot", "-T", "bad\nnewline"] }).includes("\n"),
   "control characters never reach the launch command")
+assert.equal(
+  E.launchCommand(client({ pid: 10 }), { "10": { argv: ["foot", "-a", "x"], cwd: "/tmp/w" } }),
+  "foot -a x", "object entries carry argv")
+
+// ---- cwd: captured into the scene, cd-prefixed on spawn
+const cwdScene = E.buildScene("t", [client({ pid: 11 })], { id: 1 },
+  { "11": { argv: ["foot"], cwd: "/home/mcw/Work" } })
+assert.equal(cwdScene.windows[0].cwd, "/home/mcw/Work")
+const cwdPlan = E.buildRestorePlan(cwdScene, [], {}, true, null)
+assert.ok(cwdPlan.script.includes("cd '\"'\"'/home/mcw/Work'\"'\"' && foot".replace(/'\"'\"'/g, "'\\''")) ||
+          cwdPlan.script.includes("cd ") && cwdPlan.script.includes("/home/mcw/Work") && cwdPlan.script.includes("&& foot"),
+  "spawn is cd-prefixed with the saved directory")
+const noCwdScene = E.buildScene("t", [client({ pid: 12 })], { id: 1 }, { "12": { argv: ["foot"] } })
+assert.ok(!E.buildRestorePlan(noCwdScene, [], {}, true, null).script.includes("cd "),
+  "no cwd, no cd prefix")
 
 // ---- buildScene: skips special workspaces, unmapped, and pid-less
 const scene = E.buildScene("t", [
