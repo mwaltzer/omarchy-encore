@@ -159,7 +159,7 @@ Item {
 
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
-              text: "\u2756"
+              text: "\u259A"
               color: root.accentColor
               font.family: Style.font.family
               font.pixelSize: Style.font.iconLarge
@@ -259,7 +259,7 @@ Item {
 
             Text {
               anchors.horizontalCenter: parent.horizontalCenter
-              text: "\u2756"
+              text: "\u259A"
               color: root.mutedColor
               opacity: 0.5
               font.family: Style.font.family
@@ -506,7 +506,7 @@ Item {
       anchors.left: parent.left
       anchors.leftMargin: Style.space(12)
       anchors.verticalCenter: parent.verticalCenter
-      text: "\u2756"
+      text: "\u259A"
       color: rowRoot.selected ? root.accentColor : root.mutedColor
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall

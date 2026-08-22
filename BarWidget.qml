@@ -46,7 +46,7 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "\u2756"
+    text: "\u259A"
     tooltipText: root.sceneCount > 0
       ? "Encore - " + root.sceneCount + (root.sceneCount === 1 ? " scene" : " scenes")
       : "Encore"
