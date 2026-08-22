@@ -1,4 +1,4 @@
-// Plain-node tests for Reprise.js. Run: node tests/encore.test.mjs
+// Plain-node tests for Reprise.js. Run: node tests/reprise.test.mjs
 import { readFileSync } from "node:fs"
 import { strict as assert } from "node:assert"
 import { fileURLToPath } from "node:url"
@@ -40,13 +40,13 @@ assert.equal(E.quoteArg("it's"), "'it'\\''s'")
 
 // ---- launch command: argv joined, webapps rebuilt from class
 assert.equal(
-  E.launchCommand(client({ pid: 7 }), { "7": ["foot", "-T", "a b"] }),
+  E.launchCommand(client({ pid: 7 }), { "7": { argv: ["foot", "-T", "a b"] } }),
   "foot -T 'a b'")
 assert.equal(
-  E.launchCommand(client({ class: "chrome-x.com__-Default", pid: 8 }), { "8": ["/opt/browser"] }),
+  E.launchCommand(client({ class: "chrome-x.com__-Default", pid: 8 }), { "8": { argv: ["/opt/browser"] } }),
   "omarchy-launch-webapp https://x.com")
 assert.ok(
-  !E.launchCommand(client({ pid: 9 }), { "9": ["foot", "-T", "bad\nnewline"] }).includes("\n"),
+  !E.launchCommand(client({ pid: 9 }), { "9": { argv: ["foot", "-T", "bad\nnewline"] } }).includes("\n"),
   "control characters never reach the launch command")
 assert.equal(
   E.launchCommand(client({ pid: 10 }), { "10": { argv: ["foot", "-a", "x"], cwd: "/tmp/w" } }),
@@ -57,8 +57,8 @@ const cwdScene = E.buildScene("t", [client({ pid: 11 })], { id: 1 },
   { "11": { argv: ["foot"], cwd: "/home/mcw/Work" } })
 assert.equal(cwdScene.windows[0].cwd, "/home/mcw/Work")
 const cwdPlan = E.buildRestorePlan(cwdScene, [], {}, true, null)
-assert.ok(cwdPlan.script.includes("cd '\"'\"'/home/mcw/Work'\"'\"' && foot".replace(/'\"'\"'/g, "'\\''")) ||
-          cwdPlan.script.includes("cd ") && cwdPlan.script.includes("/home/mcw/Work") && cwdPlan.script.includes("&& foot"),
+assert.ok(cwdPlan.script.includes("cd ") && cwdPlan.script.includes("/home/mcw/Work")
+          && cwdPlan.script.includes("&& foot"),
   "spawn is cd-prefixed with the saved directory")
 const noCwdScene = E.buildScene("t", [client({ pid: 12 })], { id: 1 }, { "12": { argv: ["foot"] } })
 assert.ok(!E.buildRestorePlan(noCwdScene, [], {}, true, null).script.includes("cd "),
@@ -70,7 +70,7 @@ const scene = E.buildScene("t", [
   client({ address: "0xb", pid: 2, workspace: { id: -99, name: "special" } }),
   client({ address: "0xc", pid: 3, mapped: false }),
   client({ address: "0xd", pid: 0 })
-], { id: 1 }, { "1": ["foot"], "2": ["foot"], "3": ["foot"] })
+], { id: 1 }, { "1": { argv: ["foot"] }, "2": { argv: ["foot"] }, "3": { argv: ["foot"] } })
 assert.equal(scene.windows.length, 1)
 assert.equal(E.sceneMeta(scene).workspaces, 1)
 

@@ -29,7 +29,7 @@ function capturable(c) {
 // to be read and edited by hand.
 function quoteArg(a) {
   a = String(a)
-  if (/^[A-Za-z0-9_@%+=:,.\/-]+$/.test(a)) return a
+  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(a)) return a
   return shellQuote(a)
 }
 
@@ -43,21 +43,21 @@ function launchCommand(c, cmdByPid) {
     if (host.length > 0) return "omarchy-launch-webapp https://" + host
   }
   var entry = cmdByPid[String(c.pid)]
-  if (!entry) return ""
+  if (!entry || !entry.argv || entry.argv.length === 0) return ""
   // Control characters would break the Lua string the command is later
   // embedded in; no launchable command legitimately contains them.
-  if (typeof entry === "string") return entry.replace(/[\x00-\x1f]+/g, " ").trim()
-  var argv = entry.argv || entry
   var parts = []
-  for (var i = 0; i < argv.length; i++)
-    parts.push(quoteArg(String(argv[i]).replace(/[\x00-\x1f]+/g, " ")))
+  for (var i = 0; i < entry.argv.length; i++)
+    // oxlint-disable-next-line no-control-regex -- stripping control characters is the point
+    parts.push(quoteArg(String(entry.argv[i]).replace(/[\x00-\x1f]+/g, " ")))
   return parts.join(" ").trim()
 }
 
 // The working directory recorded at save time, if any.
 function capturedCwd(c, cmdByPid) {
   var entry = cmdByPid[String(c.pid)]
-  if (!entry || typeof entry === "string" || !entry.cwd) return ""
+  if (!entry || !entry.cwd) return ""
+  // oxlint-disable-next-line no-control-regex -- stripping control characters is the point
   return String(entry.cwd).replace(/[\x00-\x1f]+/g, "").trim()
 }
 
@@ -280,7 +280,7 @@ function buildRestorePlan(scene, currentClients, spawnedSlots, firstPass, baseli
 function sceneHasColumns(scene) {
   var wins = (scene && scene.windows) || []
   for (var i = 0; i < wins.length; i++) {
-    if (typeof wins[i].col === "number") return true
+    if (Number.isFinite(wins[i].col)) return true
   }
   return false
 }
@@ -310,7 +310,7 @@ function buildTilingPlan(scene, currentClients) {
   for (i = 0; i < wins.length; i++) {
     var w = wins[i]
     if (w.floating || (Number(w.fullscreen) || 0) > 0) continue
-    if (typeof w.col !== "number") continue
+    if (!Number.isFinite(w.col)) continue
     if (!byWs[w.workspace]) byWs[w.workspace] = []
     byWs[w.workspace].push(w)
   }
