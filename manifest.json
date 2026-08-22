@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "mcw.encore",
   "name": "Encore",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "Mellisa Waltzer",
   "license": "MIT",
   "description": "Workspace scenes for Hyprland: save the stage, restore it with one key. Apps launch and fly into place.",

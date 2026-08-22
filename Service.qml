@@ -135,7 +135,10 @@ Item {
   // Snapshot the live window state. Both save and restore start here.
   Process {
     id: snapProc
-    command: ["sh", "-c", "hyprctl -j clients; echo __ENCORE__; hyprctl -j activeworkspace"]
+    command: ["sh", "-c",
+      "hyprctl -j clients; echo __ENCORE__; hyprctl -j activeworkspace; echo __ENCORE__; " +
+      "hyprctl -j monitors; echo __ENCORE__; hyprctl -j getoption general:layout; " +
+      "echo __ENCORE__; hyprctl -j getoption general:gaps_in"]
     stdout: StdioCollector {
       id: snapStdout
       waitForEnd: true
@@ -145,6 +148,13 @@ Item {
         var active = null
         try { clients = JSON.parse(parts[0] || "[]") } catch (e) {}
         try { active = JSON.parse(parts[1] || "null") } catch (e2) {}
+        try { root.snapMonitors = JSON.parse(parts[2] || "[]") } catch (e3) {}
+        try { root.snapLayout = String(JSON.parse(parts[3] || "{}").str || "") } catch (e4) {}
+        try {
+          var g = JSON.parse(parts[4] || "{}")
+          var first = String(g.css || g.int || "0").match(/\d+/)
+          root.snapGapsIn = first ? parseInt(first[0], 10) : 0
+        } catch (e5) {}
         root.onSnapshot(clients, active)
       }
     }
@@ -152,6 +162,9 @@ Item {
 
   property var snapClients: []
   property var snapActive: null
+  property var snapMonitors: []
+  property string snapLayout: ""
+  property int snapGapsIn: 0
 
   function onSnapshot(clients, active) {
     if (!root.pending) return
@@ -159,6 +172,16 @@ Item {
     root.snapActive = active
 
     if (root.pending.op === "restore") {
+      if (root.pending.stage === "tile") {
+        var tileScript = Encore.buildTilingPlan(root.pending.scene, clients)
+        if (tileScript.length > 0) {
+          runProc.command = ["sh", "-c", tileScript]
+          runProc.running = true
+        } else {
+          root.finishRestore()
+        }
+        return
+      }
       if (root.pending.baseline === null) {
         var base = {}
         for (var b = 0; b < clients.length; b++) base[clients[b].address] = true
@@ -175,8 +198,10 @@ Item {
       if (plan.script.length > 0) {
         runProc.command = ["sh", "-c", plan.script]
         runProc.running = true
+      } else if (root.pending.unresolved > 0 && root.pending.pass < 5) {
+        settleTimer.restart()
       } else {
-        root.finishRestore()
+        root.maybeTile()
       }
       return
     }
@@ -224,6 +249,9 @@ Item {
           } catch (e) {}
         }
         var scene = Encore.buildScene(root.pending.name, root.snapClients, root.snapActive, cmdByPid)
+        // Column data only means something on the scrolling layout.
+        if (root.snapLayout === "scrolling")
+          Encore.annotateColumns(scene, root.snapMonitors, root.snapGapsIn)
         scene.savedAt = new Date().toISOString()
         if (scene.windows.length === 0) {
           root.finishOp("nothing on stage to save")
@@ -251,9 +279,22 @@ Item {
     command: []
     onExited: function(exitCode) {
       if (!root.pending || root.pending.op !== "restore") return
+      if (root.pending.stage === "tile") { root.finishRestore(); return }
       // Spawned windows need a beat to map before they can be adopted.
       if (root.pending.unresolved > 0 && root.pending.pass < 5) settleTimer.restart()
-      else root.finishRestore()
+      else root.maybeTile()
+    }
+  }
+
+  // With every window home, reproduce the saved column layout — but only
+  // when the scene carries column data and nothing is missing.
+  function maybeTile() {
+    if (root.pending && root.pending.unresolved === 0
+        && Encore.sceneHasColumns(root.pending.scene)) {
+      root.pending.stage = "tile"
+      snapProc.running = true
+    } else {
+      root.finishRestore()
     }
   }
 

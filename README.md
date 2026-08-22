@@ -48,9 +48,11 @@ Restore from a boot script, a cron, or another machine over SSH.
 - Chromium web apps are recognized by window class and relaunched through
   `omarchy-launch-webapp`.
 - Floating windows come back at their exact position and size; fullscreen
-  and pinned states are restored too. Tiled windows are restored to their
-  workspace and tile naturally — Encore does not try to reproduce exact
-  tiling splits.
+  and pinned states are restored too.
+- On the scrolling layout, Encore reproduces the exact column layout:
+  column order, which windows stack in which column, and exact column
+  widths. On other layouts (dwindle, master), tiled windows are restored
+  to their workspace and tile naturally.
 - A relaunched app whose window class changed is still adopted: windows
   that appear during a restore are matched to the remaining slots.
 - Scenes restore windows to workspaces; multi-monitor workspace

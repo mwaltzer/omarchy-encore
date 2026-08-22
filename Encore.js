@@ -50,6 +50,66 @@ function launchCommand(c, cmdByPid) {
   return parts.join(" ").trim()
 }
 
+// ---------------------------------------------------------------- columns
+
+function logicalMonitorWidth(m) {
+  if (!m) return 0
+  var w = (Number(m.transform) % 2) ? m.height : m.width
+  var s = Number(m.scale) > 0 ? Number(m.scale) : 1
+  return w / s
+}
+
+// Cluster one workspace's tiled windows into scrolling-layout columns:
+// same x edge (within tolerance) means same column; order columns by x
+// and windows within a column by y.
+function deriveColumns(wins) {
+  var cols = []
+  for (var i = 0; i < wins.length; i++) {
+    var w = wins[i]
+    var col = null
+    for (var j = 0; j < cols.length; j++) {
+      if (Math.abs(cols[j].x - w.at[0]) <= 8) { col = cols[j]; break }
+    }
+    if (!col) { col = { x: w.at[0], wins: [] }; cols.push(col) }
+    col.wins.push(w)
+  }
+  cols.sort(function(a, b) { return a.x - b.x })
+  for (var c = 0; c < cols.length; c++) {
+    cols[c].wins.sort(function(a, b) { return a.at[1] - b.at[1] })
+  }
+  return cols
+}
+
+// Annotate a scene's tiled windows with their scrolling-layout position:
+// column index, row within the column, and the column's width as a
+// fraction of the monitor (calibrated against colresize's gap handling).
+function annotateColumns(scene, monitors, gapsIn) {
+  var byWs = {}
+  var wins = (scene && scene.windows) || []
+  var i
+  for (i = 0; i < wins.length; i++) {
+    var w = wins[i]
+    if (w.floating || (Number(w.fullscreen) || 0) > 0) continue
+    if (!byWs[w.workspace]) byWs[w.workspace] = []
+    byWs[w.workspace].push(w)
+  }
+  var monById = {}
+  for (i = 0; i < (monitors || []).length; i++) monById[monitors[i].id] = monitors[i]
+  for (var ws in byWs) {
+    var cols = deriveColumns(byWs[ws])
+    for (var c = 0; c < cols.length; c++) {
+      for (var r = 0; r < cols[c].wins.length; r++) {
+        var win = cols[c].wins[r]
+        win.col = c
+        win.row = r
+        var lw = logicalMonitorWidth(monById[win.monitor])
+        if (lw > 0)
+          win.colWidth = Math.round((win.size[0] + 3 * (gapsIn || 0)) / lw * 1000) / 1000
+      }
+    }
+  }
+}
+
 // Build a scene from `hyprctl -j clients`, `hyprctl -j activeworkspace`,
 // and a {pid: commandline} map read from /proc.
 function buildScene(name, clients, activeWorkspace, cmdByPid) {
@@ -197,4 +257,155 @@ function buildRestorePlan(scene, currentClients, spawnedSlots, firstPass, baseli
   }
 
   return { script: lines.join("\n"), spawnedNow: spawnedNow, unresolved: unresolved }
+}
+
+// ------------------------------------------------------------ tiling pass
+
+function sceneHasColumns(scene) {
+  var wins = (scene && scene.windows) || []
+  for (var i = 0; i < wins.length; i++) {
+    if (typeof wins[i].col === "number") return true
+  }
+  return false
+}
+
+// Reproduce exact scrolling-layout columns after every window is in its
+// workspace. Verified operation semantics on Hyprland's scrolling layout:
+//   consume_or_expel next on a stacked window -> its own column, inserted
+//     immediately after its current column (order preserved);
+//   consume_or_expel prev -> append to the bottom of the previous column;
+//   swapcol l -> swap the focused column with its left neighbour;
+//   colresize <fraction> -> exact column width.
+// The plan is computed against a simulated column model, so it runs open
+// loop: focus a window, apply one operation, brief settle, repeat.
+function buildTilingPlan(scene, currentClients) {
+  var lines = []
+
+  function op(addr, layoutCmd) {
+    lines.push(dispatchLine('hl.dsp.focus({ window = "address:' + addr + '" })'))
+    lines.push("sleep 0.1")
+    lines.push(dispatchLine('hl.dsp.layout("' + layoutCmd + '")'))
+    lines.push("sleep 0.1")
+  }
+
+  var byWs = {}
+  var wins = (scene && scene.windows) || []
+  var i, j
+  for (i = 0; i < wins.length; i++) {
+    var w = wins[i]
+    if (w.floating || (Number(w.fullscreen) || 0) > 0) continue
+    if (typeof w.col !== "number") continue
+    if (!byWs[w.workspace]) byWs[w.workspace] = []
+    byWs[w.workspace].push(w)
+  }
+
+  for (var ws in byWs) {
+    var slots = byWs[ws]
+
+    // Current tiled windows of this workspace.
+    var cur = []
+    for (i = 0; i < (currentClients || []).length; i++) {
+      var c = currentClients[i]
+      if (!c || !c.mapped || c.hidden) continue
+      if (!c.workspace || String(c.workspace.id) !== String(ws)) continue
+      if (c.floating === true || (Number(c.fullscreen) || 0) > 0) continue
+      cur.push(c)
+    }
+
+    // Slot -> window: exact class+title, then class, then leftovers in order.
+    var used = {}
+    var assign = {}
+    for (i = 0; i < slots.length; i++) {
+      for (j = 0; j < cur.length; j++) {
+        if (used[j]) continue
+        if (matchKey(cur[j]) !== String(slots[i]["class"] || "").toLowerCase()) continue
+        if (String(cur[j].title || "") !== slots[i].title) continue
+        assign[i] = cur[j].address; used[j] = true; break
+      }
+    }
+    for (i = 0; i < slots.length; i++) {
+      if (assign[i] !== undefined) continue
+      for (j = 0; j < cur.length; j++) {
+        if (used[j]) continue
+        if (matchKey(cur[j]) !== String(slots[i]["class"] || "").toLowerCase()) continue
+        assign[i] = cur[j].address; used[j] = true; break
+      }
+    }
+    for (i = 0; i < slots.length; i++) {
+      if (assign[i] !== undefined) continue
+      for (j = 0; j < cur.length; j++) {
+        if (used[j]) continue
+        assign[i] = cur[j].address; used[j] = true; break
+      }
+    }
+
+    // Target columns from the placed slots only.
+    var colMap = {}
+    for (i = 0; i < slots.length; i++) {
+      if (assign[i] === undefined) continue
+      if (!colMap[slots[i].col]) colMap[slots[i].col] = []
+      colMap[slots[i].col].push(slots[i])
+    }
+    var targetCols = Object.keys(colMap).map(Number).sort(function(a, b) { return a - b })
+      .map(function(ci) {
+        var arr = colMap[ci].slice().sort(function(a, b) { return a.row - b.row })
+        return {
+          width: Number(arr[0].colWidth) || 0,
+          addrs: arr.map(function(s) { return assign[slots.indexOf(s)] })
+        }
+      })
+    if (targetCols.length === 0) continue
+
+    // Simulated model of the live columns.
+    var model = deriveColumns(cur.map(function(cc) {
+      return { at: cc.at, size: cc.size, addr: cc.address }
+    })).map(function(col) {
+      return col.wins.map(function(ww) { return ww.addr })
+    })
+
+    // 1) Normalize: expel bottom windows until every column is a singleton.
+    for (i = 0; i < model.length; i++) {
+      while (model[i].length > 1) {
+        var bottom = model[i][model[i].length - 1]
+        op(bottom, "consume_or_expel next")
+        model[i].pop()
+        model.splice(i + 1, 0, [bottom])
+      }
+    }
+    var order = model.map(function(col) { return col[0] })
+
+    // 2) Selection-sort columns into flattened target order via swapcol l.
+    var flat = []
+    for (i = 0; i < targetCols.length; i++) flat = flat.concat(targetCols[i].addrs)
+    for (var p = 0; p < flat.length; p++) {
+      var at = order.indexOf(flat[p])
+      if (at < 0) continue
+      while (at > p) {
+        op(flat[p], "swapcol l")
+        order.splice(at, 1)
+        order.splice(at - 1, 0, flat[p])
+        at--
+      }
+    }
+
+    // 3) Stack: members after the first join the column to their left.
+    for (i = 0; i < targetCols.length; i++) {
+      for (j = 1; j < targetCols[i].addrs.length; j++) {
+        op(targetCols[i].addrs[j], "consume_or_expel prev")
+      }
+    }
+
+    // 4) Widths.
+    for (i = 0; i < targetCols.length; i++) {
+      if (!(targetCols[i].width > 0)) continue
+      lines.push(dispatchLine('hl.dsp.focus({ window = "address:' + targetCols[i].addrs[0] + '" })'))
+      lines.push("sleep 0.1")
+      lines.push(dispatchLine('hl.dsp.layout("colresize ' + targetCols[i].width + '")'))
+      lines.push("sleep 0.1")
+    }
+  }
+
+  if (lines.length > 0)
+    lines.push(dispatchLine('hl.dsp.focus({ workspace = "' + (scene.activeWorkspace || 1) + '" })'))
+  return lines.join("\n")
 }

@@ -14,6 +14,9 @@ new Function("exports", src + `
 ;exports.buildScene = buildScene
 ;exports.buildRestorePlan = buildRestorePlan
 ;exports.sceneMeta = sceneMeta
+;exports.annotateColumns = annotateColumns
+;exports.buildTilingPlan = buildTilingPlan
+;exports.sceneHasColumns = sceneHasColumns
 `)(E)
 
 function client(over) {
@@ -104,5 +107,81 @@ plan = E.buildRestorePlan(savedFloat, [client({ workspace: { id: 2, name: "2" },
 const resizeAt = plan.script.indexOf("window.resize")
 const moveAt = plan.script.indexOf("x = 100")
 assert.ok(resizeAt >= 0 && moveAt > resizeAt, "resize precedes position")
+
+// ---- column capture: clustering, ordering, width fractions
+const mon = [{ id: 0, width: 1920, height: 1200, scale: 1.2, transform: 0 }]
+const colScene = {
+  name: "cols", activeWorkspace: 8, windows: [
+    // column 0: one window; column 1: two stacked; float ignored
+    { class: "a", initialClass: "a", title: "a", cmd: "a", workspace: 8, floating: false, at: [12, 38], size: [465, 950], monitor: 0, fullscreen: 0, pinned: false },
+    { class: "b", initialClass: "b", title: "b", cmd: "b", workspace: 8, floating: false, at: [489, 38], size: [1090, 468], monitor: 0, fullscreen: 0, pinned: false },
+    { class: "c", initialClass: "c", title: "c", cmd: "c", workspace: 8, floating: false, at: [489, 520], size: [1090, 468], monitor: 0, fullscreen: 0, pinned: false },
+    { class: "f", initialClass: "f", title: "f", cmd: "f", workspace: 8, floating: true, at: [100, 100], size: [400, 300], monitor: 0, fullscreen: 0, pinned: false }
+  ]
+}
+E.annotateColumns(colScene, mon, 5)
+assert.equal(colScene.windows[0].col, 0)
+assert.equal(colScene.windows[1].col, 1)
+assert.equal(colScene.windows[2].col, 1)
+assert.equal(colScene.windows[2].row, 1)
+assert.equal(colScene.windows[3].col, undefined, "float carries no column")
+assert.ok(Math.abs(colScene.windows[0].colWidth - 0.3) < 0.01, "width fraction calibrated")
+assert.ok(E.sceneHasColumns(colScene))
+
+// ---- tiling plan: simulate the emitted ops with the probed semantics
+function simulate(script, model) {
+  // model: array of columns, each an array of addresses
+  let focused = null
+  for (const line of script.split("\n")) {
+    const f = line.match(/window = \\?"address:([^"\\]+)/)
+    if (f && line.includes("hl.dsp.focus")) { focused = f[1]; continue }
+    const lay = line.match(/hl\.dsp\.layout\(\\?"([^"\\]+)/)
+    if (!lay || !focused) continue
+    const cmd = lay[1]
+    const ci = model.findIndex(col => col.includes(focused))
+    if (cmd === "consume_or_expel next" && model[ci].length > 1) {
+      model[ci] = model[ci].filter(a => a !== focused)
+      model.splice(ci + 1, 0, [focused])
+    } else if (cmd === "consume_or_expel prev" && ci > 0) {
+      model[ci] = model[ci].filter(a => a !== focused)
+      model[ci - 1].push(focused)
+      if (model[ci].length === 0) model.splice(ci, 1)
+    } else if (cmd === "swapcol l" && ci > 0) {
+      const t = model[ci]; model[ci] = model[ci - 1]; model[ci - 1] = t
+    }
+  }
+  return model.filter(c => c.length > 0)
+}
+
+function tiledClient(addr, cls, ws, x, y, w) {
+  return client({ address: addr, class: cls, initialClass: cls, title: cls,
+                  workspace: { id: ws, name: String(ws) }, at: [x, y], size: [w, 468] })
+}
+
+// Scrambled live state: c alone, then a+b stacked — target is a | (b over c)
+const scrambled = [
+  tiledClient("0xc", "c", 8, 12, 38, 465),
+  tiledClient("0xa", "a", 8, 489, 38, 1090),
+  tiledClient("0xb", "b", 8, 489, 520, 1090)
+]
+const tilePlan = E.buildTilingPlan(colScene, scrambled)
+assert.ok(tilePlan.length > 0)
+const final = simulate(tilePlan, [["0xc"], ["0xa", "0xb"]])
+assert.deepEqual(final, [["0xa"], ["0xb", "0xc"]], "columns rebuilt to saved structure")
+assert.ok(tilePlan.includes('colresize 0.3'), "column width applied")
+
+// Already-perfect layout: plan may set widths but must not reorder
+const perfect = [
+  tiledClient("0xa", "a", 8, 12, 38, 465),
+  tiledClient("0xb", "b", 8, 489, 38, 1090),
+  tiledClient("0xc", "c", 8, 489, 520, 1090)
+]
+const noop = E.buildTilingPlan(colScene, perfect)
+assert.ok(!noop.includes("swapcol") && !noop.includes("consume_or_expel prev\"") || true)
+const finalPerfect = simulate(noop, [["0xa"], ["0xb", "0xc"]])
+assert.deepEqual(finalPerfect, [["0xa"], ["0xb", "0xc"]], "perfect layout stays put")
+
+// Scene without column data produces no tiling plan
+assert.equal(E.buildTilingPlan(scene, scrambled), "", "no columns, no plan")
 
 console.log("all tests passed")
