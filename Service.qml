@@ -50,8 +50,14 @@ Item {
 
   Process {
     id: lsProc
+    // Scene files are user-writable input: skip anything over 256KB and
+    // read at most 200 files, so a crafted directory cannot balloon the
+    // long-lived shell process.
     command: ["sh", "-c",
-              'for f in "$1"/*.json; do [ -e "$f" ] || continue; printf "%s\\t%s\\n" "$f" "$(base64 -w0 "$f")"; done',
+              'n=0; for f in "$1"/*.json; do [ -e "$f" ] || continue; ' +
+              's=$(stat -c%s "$f" 2>/dev/null || echo 999999999); [ "$s" -le 262144 ] || continue; ' +
+              'n=$((n+1)); [ "$n" -le 200 ] || break; ' +
+              'printf "%s\\t%s\\n" "$f" "$(base64 -w0 "$f")"; done',
               "sh", root.scenesDir]
     stdout: StdioCollector {
       id: lsStdout
@@ -68,6 +74,11 @@ Item {
           try {
             var scene = JSON.parse(String(Util.decodeBase64(line.slice(tab + 1)) || ""))
             if (!scene || !scene.name) continue
+            // Scene JSON is user-writable input: bound the name before it
+            // reaches any display surface.
+            scene.name = String(scene.name)
+              .replace(/\x00|[\x01-\x1f]+/g, " ").trim().slice(0, 120)
+            if (scene.name.length === 0) continue
             var meta = Reprise.sceneMeta(scene)
             next.push({
               name: scene.name,
@@ -135,10 +146,16 @@ Item {
   // Snapshot the live window state. Both save and restore start here.
   Process {
     id: snapProc
+    // Each section is capped far above any real desktop's output so
+    // pathological window or monitor counts cannot grow the aggregate
+    // without bound. A truncated section fails JSON.parse and the
+    // operation ends with an error instead of bad data.
     command: ["sh", "-c",
-      "hyprctl -j clients; echo __ENCORE__; hyprctl -j activeworkspace; echo __ENCORE__; " +
-      "hyprctl -j monitors; echo __ENCORE__; hyprctl -j getoption general:layout; " +
-      "echo __ENCORE__; hyprctl -j getoption general:gaps_in"]
+      "hyprctl -j clients | head -c 4194304; echo __ENCORE__; " +
+      "hyprctl -j activeworkspace | head -c 65536; echo __ENCORE__; " +
+      "hyprctl -j monitors | head -c 262144; echo __ENCORE__; " +
+      "hyprctl -j getoption general:layout | head -c 4096; echo __ENCORE__; " +
+      "hyprctl -j getoption general:gaps_in | head -c 4096"]
     stdout: StdioCollector {
       id: snapStdout
       waitForEnd: true
@@ -220,11 +237,14 @@ Item {
     // The working directory comes from the window process — or, when that
     // reads "/" (terminals chdir there and run the user's shell as a
     // child), from the first child with a real one.
+    // Bounded reads throughout: at most 160 processes, 8KB of cmdline,
+    // 64 argv entries of 2KB each, and 4KB of cwd — /proc contents are
+    // outside our control and must not grow the shell without limit.
     cmdProc.command = ["/usr/bin/python3", "-c",
       'import sys, json, base64, os\n' +
       'def cwd_of(p):\n' +
       '    try:\n' +
-      '        return os.readlink("/proc/" + p + "/cwd")\n' +
+      '        return os.readlink("/proc/" + p + "/cwd")[:4096]\n' +
       '    except Exception:\n' +
       '        return ""\n' +
       'def best_cwd(p):\n' +
@@ -240,10 +260,10 @@ Item {
       '        if c and c != "/":\n' +
       '            return c\n' +
       '    return own\n' +
-      'for p in sys.argv[1:]:\n' +
+      'for p in sys.argv[1:161]:\n' +
       '    try:\n' +
-      '        raw = open("/proc/" + p + "/cmdline", "rb").read()\n' +
-      '        argv = [a.decode("utf-8", "replace") for a in raw.split(b"\\0") if a]\n' +
+      '        raw = open("/proc/" + p + "/cmdline", "rb").read(8192)\n' +
+      '        argv = [a.decode("utf-8", "replace")[:2048] for a in raw.split(b"\\0") if a][:64]\n' +
       '        if not argv:\n' +
       '            continue\n' +
       '        entry = {"argv": argv}\n' +

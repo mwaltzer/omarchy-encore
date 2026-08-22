@@ -148,7 +148,8 @@ function buildScene(name, clients, activeWorkspace, cmdByPid) {
   }
   windows.sort(function(a, b) { return a.workspace - b.workspace })
   return {
-    name: String(name || "").trim(),
+    // oxlint-disable-next-line no-control-regex -- bounding display input
+    name: String(name || "").replace(/[\x00-\x1f]+/g, " ").trim().slice(0, 120),
     savedAt: "",
     activeWorkspace: activeWorkspace && activeWorkspace.id > 0 ? activeWorkspace.id : 1,
     windows: windows

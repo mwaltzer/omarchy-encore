@@ -179,6 +179,7 @@ Item {
             Text {
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
+              textFormat: Text.PlainText
               text: root.summaryLine()
               color: root.mutedColor
               font.family: Style.font.family
@@ -209,6 +210,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             visible: root.errorText().length > 0
+            textFormat: Text.PlainText
             text: root.errorText()
             color: root.urgentColor
             font.family: Style.font.family
@@ -526,6 +528,7 @@ Item {
 
       Text {
         width: parent.width
+        textFormat: Text.PlainText
         text: rowRoot.scene.name || ""
         color: root.fg
         font.family: Style.font.family
@@ -535,6 +538,7 @@ Item {
 
       Text {
         width: parent.width
+        textFormat: Text.PlainText
         text: rowRoot.armed
           ? "press x again to delete"
           : rowRoot.scene.windows + (rowRoot.scene.windows === 1 ? " window - " : " windows - ")
@@ -553,6 +557,7 @@ Item {
       anchors.right: parent.right
       anchors.rightMargin: Style.space(12)
       anchors.verticalCenter: parent.verticalCenter
+      textFormat: Text.PlainText
       text: root.savedDay(rowRoot.scene.savedAt)
       color: root.mutedColor
       font.family: Style.font.family
