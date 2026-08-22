@@ -45,6 +45,9 @@ assert.equal(
 assert.equal(
   E.launchCommand(client({ class: "chrome-x.com__-Default", pid: 8 }), { "8": ["/opt/browser"] }),
   "omarchy-launch-webapp https://x.com")
+assert.ok(
+  !E.launchCommand(client({ pid: 9 }), { "9": ["foot", "-T", "bad\nnewline"] }).includes("\n"),
+  "control characters never reach the launch command")
 
 // ---- buildScene: skips special workspaces, unmapped, and pid-less
 const scene = E.buildScene("t", [

@@ -44,9 +44,12 @@ function launchCommand(c, cmdByPid) {
   }
   var argv = cmdByPid[String(c.pid)]
   if (!argv) return ""
-  if (typeof argv === "string") return argv.trim()
+  // Control characters would break the Lua string the command is later
+  // embedded in; no launchable command legitimately contains them.
+  if (typeof argv === "string") return argv.replace(/[\x00-\x1f]+/g, " ").trim()
   var parts = []
-  for (var i = 0; i < argv.length; i++) parts.push(quoteArg(argv[i]))
+  for (var i = 0; i < argv.length; i++)
+    parts.push(quoteArg(String(argv[i]).replace(/[\x00-\x1f]+/g, " ")))
   return parts.join(" ").trim()
 }
 

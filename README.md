@@ -57,6 +57,9 @@ Restore from a boot script, a cron, or another machine over SSH.
   that appear during a restore are matched to the remaining slots.
 - Scenes restore windows to workspaces; multi-monitor workspace
   assignments follow however your workspaces are bound to monitors.
+- A scene's file name is its name reduced to a slug, so names that
+  reduce to the same slug ("Tonight!" and "tonight") share one file —
+  saving the second overwrites the first.
 
 ## Development
 
