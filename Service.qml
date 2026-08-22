@@ -2,9 +2,9 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 import qs.Commons
-import "Encore.js" as Encore
+import "Reprise.js" as Reprise
 
-// Encore service: captures the current window layout as a named scene and
+// Reprise service: captures the current window layout as a named scene and
 // restores scenes by adopting existing windows and launching missing ones.
 Item {
   id: root
@@ -17,7 +17,7 @@ Item {
   property var pluginRegistry: null
 
   readonly property string home: Quickshell.env("HOME")
-  readonly property string scenesDir: home + "/.config/omarchy/encore/scenes"
+  readonly property string scenesDir: home + "/.config/omarchy/reprise/scenes"
 
   // Bumped on every model change; consumers re-read scenes.
   property int revision: 0
@@ -68,7 +68,7 @@ Item {
           try {
             var scene = JSON.parse(String(Util.decodeBase64(line.slice(tab + 1)) || ""))
             if (!scene || !scene.name) continue
-            var meta = Encore.sceneMeta(scene)
+            var meta = Reprise.sceneMeta(scene)
             next.push({
               name: scene.name,
               file: file,
@@ -173,7 +173,7 @@ Item {
 
     if (root.pending.op === "restore") {
       if (root.pending.stage === "tile") {
-        var tileScript = Encore.buildTilingPlan(root.pending.scene, clients)
+        var tileScript = Reprise.buildTilingPlan(root.pending.scene, clients)
         if (tileScript.length > 0) {
           runProc.command = ["sh", "-c", tileScript]
           runProc.running = true
@@ -187,7 +187,7 @@ Item {
         for (var b = 0; b < clients.length; b++) base[clients[b].address] = true
         root.pending.baseline = base
       }
-      var plan = Encore.buildRestorePlan(root.pending.scene, clients,
+      var plan = Reprise.buildRestorePlan(root.pending.scene, clients,
                                          root.pending.spawnedSlots,
                                          root.pending.pass === 0,
                                          root.pending.baseline)
@@ -248,16 +248,16 @@ Item {
               JSON.parse(String(Util.decodeBase64(lines[i].slice(tab + 1)) || "[]"))
           } catch (e) {}
         }
-        var scene = Encore.buildScene(root.pending.name, root.snapClients, root.snapActive, cmdByPid)
+        var scene = Reprise.buildScene(root.pending.name, root.snapClients, root.snapActive, cmdByPid)
         // Column data only means something on the scrolling layout.
         if (root.snapLayout === "scrolling")
-          Encore.annotateColumns(scene, root.snapMonitors, root.snapGapsIn)
+          Reprise.annotateColumns(scene, root.snapMonitors, root.snapGapsIn)
         scene.savedAt = new Date().toISOString()
         if (scene.windows.length === 0) {
           root.finishOp("nothing on stage to save")
           return
         }
-        var file = root.scenesDir + "/" + Encore.slug(scene.name, 40) + ".json"
+        var file = root.scenesDir + "/" + Reprise.slug(scene.name, 40) + ".json"
         writeProc.command = ["sh", "-c", 'printf %s "$1" > "$2"', "sh",
                              JSON.stringify(scene, null, 2), file]
         writeProc.running = true
@@ -290,7 +290,7 @@ Item {
   // when the scene carries column data and nothing is missing.
   function maybeTile() {
     if (root.pending && root.pending.unresolved === 0
-        && Encore.sceneHasColumns(root.pending.scene)) {
+        && Reprise.sceneHasColumns(root.pending.scene)) {
       root.pending.stage = "tile"
       snapProc.running = true
     } else {
@@ -308,7 +308,7 @@ Item {
     var name = root.pending ? root.pending.name : ""
     var unresolved = root.pending ? root.pending.unresolved : 0
     root.finishOp(unresolved > 0 ? unresolved + " window(s) did not return" : "")
-    notifyProc.command = ["omarchy-notification-send", "-a", "Encore",
+    notifyProc.command = ["omarchy-notification-send", "-a", "Reprise",
                           "-u", unresolved > 0 ? "critical" : "normal",
                           unresolved > 0 ? "Scene partly restored" : "Scene restored", name]
     notifyProc.running = true
@@ -329,7 +329,7 @@ Item {
   // ------------------------------------------------------------------ IPC
 
   IpcHandler {
-    target: "encore"
+    target: "reprise"
 
     function ping(): string {
       return "ok"

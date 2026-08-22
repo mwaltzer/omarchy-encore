@@ -6,10 +6,10 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "mcw.encore"
+  moduleName: "io.github.mwaltzer.reprise"
 
   readonly property string home: Quickshell.env("HOME")
-  readonly property string scenesDir: home + "/.config/omarchy/encore/scenes"
+  readonly property string scenesDir: home + "/.config/omarchy/reprise/scenes"
 
   property int sceneCount: 0
 
@@ -48,8 +48,8 @@ BarWidget {
     bar: root.bar
     text: "\u259A"
     tooltipText: root.sceneCount > 0
-      ? "Encore - " + root.sceneCount + (root.sceneCount === 1 ? " scene" : " scenes")
-      : "Encore"
+      ? "Reprise - " + root.sceneCount + (root.sceneCount === 1 ? " scene" : " scenes")
+      : "Reprise"
     dimmed: root.sceneCount === 0
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.LeftButton)

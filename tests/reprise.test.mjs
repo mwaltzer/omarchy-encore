@@ -1,11 +1,11 @@
-// Plain-node tests for Encore.js. Run: node tests/encore.test.mjs
+// Plain-node tests for Reprise.js. Run: node tests/encore.test.mjs
 import { readFileSync } from "node:fs"
 import { strict as assert } from "node:assert"
 import { fileURLToPath } from "node:url"
 import { dirname, join } from "node:path"
 
 const here = dirname(fileURLToPath(import.meta.url))
-const src = readFileSync(join(here, "..", "Encore.js"), "utf8")
+const src = readFileSync(join(here, "..", "Reprise.js"), "utf8")
 const E = {}
 new Function("exports", src + `
 ;exports.slug = slug

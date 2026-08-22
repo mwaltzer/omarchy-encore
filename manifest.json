@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "mcw.encore",
-  "name": "Encore",
+  "id": "io.github.mwaltzer.reprise",
+  "name": "Reprise",
   "version": "0.3.0",
   "author": "Mellisa Waltzer",
   "license": "MIT",
@@ -14,7 +14,7 @@
   },
   "keepLoaded": true,
   "barWidget": {
-    "displayName": "Encore",
+    "displayName": "Reprise",
     "description": "Scene marker with saved-scene count. Click to open the scene picker.",
     "category": "Workflow",
     "aliases": ["scenes", "session", "layout", "workspaces"],

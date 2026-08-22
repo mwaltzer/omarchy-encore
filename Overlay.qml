@@ -93,7 +93,7 @@ Item {
     onVisibleChanged: if (visible) Qt.callLater(root.focusInitial)
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
-    WlrLayershell.namespace: "omarchy-encore"
+    WlrLayershell.namespace: "omarchy-reprise"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore
@@ -169,7 +169,7 @@ Item {
               anchors.left: crest.right
               anchors.leftMargin: Style.space(12)
               anchors.verticalCenter: parent.verticalCenter
-              text: "ENCORE"
+              text: "REPRISE"
               color: root.fg
               font.family: Style.font.family
               font.pixelSize: Style.font.subtitle

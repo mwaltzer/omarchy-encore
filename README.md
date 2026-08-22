@@ -1,14 +1,38 @@
-# Encore
+# Reprise
 
-![Encore restoring a scene: windows close, one keypress brings them all back](demo.gif)
+![Reprise restoring a scene: windows close, one keypress brings them all back](demo.gif)
 
 Workspace scenes for Omarchy. Save the stage; restore it with one key.
 Apps launch and fly into their places — workspace by workspace, floats
 back at their exact spots.
 
-Hyprland has no session management. Encore is the missing curtain call:
+Hyprland has no session management. Reprise is the missing curtain call:
 name the layout you are in, and any time later — after a reboot, after a
 "close everything" sweep — bring the whole arrangement back.
+
+## Install
+
+```
+git clone https://github.com/mwaltzer/omarchy-reprise \
+  ~/.config/omarchy/plugins/io.github.mwaltzer.reprise
+omarchy-restart-shell
+```
+
+Add the Reprise widget to your bar from the shell's widget settings, or
+bind a key (see below). Dependencies: only what Omarchy already ships —
+`hyprctl`, `sh`, and the system `python3` (used once per save to read
+launch commands from `/proc`).
+
+## Remove
+
+```
+rm -rf ~/.config/omarchy/plugins/io.github.mwaltzer.reprise
+omarchy-restart-shell
+```
+
+Your saved scenes live in `~/.config/omarchy/reprise/scenes/` and are
+left in place; delete that folder too if you want nothing behind.
+Reprise never writes outside its plugin directory and that scenes folder.
 
 ## Use
 
@@ -22,21 +46,21 @@ name the layout you are in, and any time later — after a reboot, after a
 - `up/down` or `j/k` select, `r` prefills a scene name to re-save,
   `x` twice deletes, `Esc` closes.
 
-Scenes are plain JSON files in `~/.config/omarchy/encore/scenes/` —
+Scenes are plain JSON files in `~/.config/omarchy/reprise/scenes/` —
 inspect them, edit them, sync them between machines.
 
 Optional keybind in `~/.config/hypr/bindings.lua`:
 
 ```lua
-o.bind("SUPER + E", "Encore", "omarchy-shell shell toggle mcw.encore '{}'")
+o.bind("SUPER + E", "Encore", "omarchy-shell shell toggle io.github.mwaltzer.reprise '{}'")
 ```
 
 ## IPC
 
 ```
-omarchy-shell encore list
-omarchy-shell encore save "deep work"
-omarchy-shell encore restore "deep work"
+omarchy-shell reprise list
+omarchy-shell reprise save "deep work"
+omarchy-shell reprise restore "deep work"
 ```
 
 Restore from a boot script, a cron, or another machine over SSH.
@@ -49,7 +73,7 @@ Restore from a boot script, a cron, or another machine over SSH.
   `omarchy-launch-webapp`.
 - Floating windows come back at their exact position and size; fullscreen
   and pinned states are restored too.
-- On the scrolling layout, Encore reproduces the exact column layout:
+- On the scrolling layout, Reprise reproduces the exact column layout:
   column order, which windows stack in which column, and exact column
   widths. On other layouts (dwindle, master), tiled windows are restored
   to their workspace and tile naturally.
@@ -63,11 +87,11 @@ Restore from a boot script, a cron, or another machine over SSH.
 
 ## Development
 
-The planning logic is pure JavaScript in `Encore.js`, covered by a
+The planning logic is pure JavaScript in `Reprise.js`, covered by a
 frameworkless test suite:
 
 ```
-node tests/encore.test.mjs
+node tests/reprise.test.mjs
 ```
 
 QML lint: `qmllint -I /usr/share/omarchy/shell *.qml`
