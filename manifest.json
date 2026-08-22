@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "mcw.encore",
+  "name": "Encore",
+  "version": "0.2.0",
+  "author": "Mellisa Waltzer",
+  "license": "MIT",
+  "description": "Workspace scenes for Hyprland: save the stage, restore it with one key. Apps launch and fly into place.",
+  "kinds": ["service", "overlay", "bar-widget"],
+  "entryPoints": {
+    "service": "Service.qml",
+    "overlay": "Overlay.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "keepLoaded": true,
+  "barWidget": {
+    "displayName": "Encore",
+    "description": "Scene marker with saved-scene count. Click to open the scene picker.",
+    "category": "Workflow",
+    "aliases": ["scenes", "session", "layout", "workspaces"],
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
