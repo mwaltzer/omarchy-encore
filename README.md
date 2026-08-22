@@ -13,9 +13,7 @@ name the layout you are in, and any time later — after a reboot, after a
 ## Install
 
 ```
-git clone https://github.com/mwaltzer/omarchy-reprise \
-  ~/.config/omarchy/plugins/io.github.mwaltzer.reprise
-omarchy-restart-shell
+omarchy plugin add https://github.com/mwaltzer/omarchy-reprise.git --enable
 ```
 
 Add the Reprise widget to your bar from the shell's widget settings, or
@@ -26,8 +24,7 @@ launch commands from `/proc`).
 ## Remove
 
 ```
-rm -rf ~/.config/omarchy/plugins/io.github.mwaltzer.reprise
-omarchy-restart-shell
+omarchy plugin remove io.github.mwaltzer.reprise
 ```
 
 Your saved scenes live in `~/.config/omarchy/reprise/scenes/` and are
