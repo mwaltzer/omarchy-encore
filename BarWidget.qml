@@ -17,7 +17,7 @@ BarWidget {
   implicitHeight: button.implicitHeight
 
   Timer {
-    interval: 15000
+    interval: 5000
     repeat: true
     running: true
     triggeredOnStart: true

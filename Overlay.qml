@@ -537,7 +537,8 @@ Item {
         width: parent.width
         text: rowRoot.armed
           ? "press x again to delete"
-          : rowRoot.scene.windows + " windows - " + rowRoot.scene.workspaces
+          : rowRoot.scene.windows + (rowRoot.scene.windows === 1 ? " window - " : " windows - ")
+            + rowRoot.scene.workspaces
             + (rowRoot.scene.workspaces === 1 ? " workspace" : " workspaces")
         color: rowRoot.armed ? root.urgentColor : root.mutedColor
         font.family: Style.font.family

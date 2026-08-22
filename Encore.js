@@ -141,7 +141,9 @@ function buildRestorePlan(scene, currentClients, spawnedSlots, firstPass, baseli
   for (i = 0; i < (currentClients || []).length; i++) {
     var c = currentClients[i]
     if (!c || !c.mapped || c.hidden) continue
-    if (!c.workspace || c.workspace.id <= 0) continue
+    // Windows parked on special workspaces (scratchpad) stay adoptable:
+    // a scene that owns one retrieves it instead of spawning a twin.
+    if (!c.workspace) continue
     if (matchKey(c).length === 0) continue
     pool.push({ client: c, used: false,
                 newborn: !!baselineAddrs && !baselineAddrs[c.address] })
