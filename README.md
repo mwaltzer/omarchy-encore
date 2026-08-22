@@ -94,6 +94,14 @@ frameworkless test suite:
 node tests/reprise.test.mjs
 ```
 
+Lint (Oxlint with the vendored anti-slop rules; installs dev
+dependencies on first run, and `node_modules` must not remain inside a
+live plugin folder):
+
+```
+npm install && npm run lint && rm -rf node_modules
+```
+
 QML lint: `qmllint -I /usr/share/omarchy/shell *.qml`
 
 MIT licensed.
