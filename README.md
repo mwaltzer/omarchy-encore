@@ -1,5 +1,7 @@
 # Encore
 
+![Encore restoring a scene: windows close, one keypress brings them all back](demo.gif)
+
 Workspace scenes for Omarchy. Save the stage; restore it with one key.
 Apps launch and fly into their places — workspace by workspace, floats
 back at their exact spots.
