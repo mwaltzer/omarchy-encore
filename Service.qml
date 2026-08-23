@@ -50,21 +50,69 @@ Item {
 
   Process {
     id: lsProc
-    // Scene files are user-writable input: skip anything over 256KB and
-    // read at most 200 files, so a crafted directory cannot balloon the
-    // long-lived shell process.
-    command: ["sh", "-c",
-              'n=0; for f in "$1"/*.json; do [ -e "$f" ] || continue; ' +
-              's=$(stat -c%s "$f" 2>/dev/null || echo 999999999); [ "$s" -le 262144 ] || continue; ' +
-              'n=$((n+1)); [ "$n" -le 200 ] || break; ' +
-              'printf "%s\\t%s\\n" "$f" "$(base64 -w0 "$f")"; done',
-              "sh", root.scenesDir]
+    // Scene files are user-writable input. TOCTOU-safe read: open one
+    // descriptor (non-blocking, no symlinks), validate THAT descriptor
+    // with fstat (regular file, <=256KB), then bounded-read from it —
+    // growth past the cap during the read is treated as failure. At most
+    // 200 files and 8MB aggregate; the whole scan carries a 10s deadline.
+    command: ["/usr/bin/timeout", "10", "/usr/bin/python3", "-c",
+      'import sys, os, stat, base64\n' +
+      'CAP = 262144\n' +
+      'def read_scene(p):\n' +
+      '    try:\n' +
+      '        fd = os.open(p, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)\n' +
+      '    except Exception:\n' +
+      '        return None\n' +
+      '    try:\n' +
+      '        st = os.fstat(fd)\n' +
+      '        if not stat.S_ISREG(st.st_mode) or st.st_size > CAP:\n' +
+      '            return None\n' +
+      '        chunks = []\n' +
+      '        size = 0\n' +
+      '        while True:\n' +
+      '            b = os.read(fd, 65536)\n' +
+      '            if not b:\n' +
+      '                return b"".join(chunks)\n' +
+      '            size += len(b)\n' +
+      '            if size > CAP:\n' +
+      '                return None\n' +
+      '            chunks.append(b)\n' +
+      '    except Exception:\n' +
+      '        return None\n' +
+      '    finally:\n' +
+      '        os.close(fd)\n' +
+      'd = sys.argv[1]\n' +
+      'try:\n' +
+      '    names = sorted(os.listdir(d))\n' +
+      'except Exception:\n' +
+      '    names = []\n' +
+      'count = 0\n' +
+      'total = 0\n' +
+      'for n in names:\n' +
+      '    if not n.endswith(".json"):\n' +
+      '        continue\n' +
+      '    if count >= 200 or total >= 8388608:\n' +
+      '        break\n' +
+      '    data = read_scene(os.path.join(d, n))\n' +
+      '    if data is None:\n' +
+      '        continue\n' +
+      '    count += 1\n' +
+      '    total += len(data)\n' +
+      '    print(os.path.join(d, n) + "\\t" + base64.b64encode(data).decode())',
+      root.scenesDir]
     stdout: StdioCollector {
       id: lsStdout
       waitForEnd: true
       onStreamFinished: {
+        // Defense in depth behind the producer-side caps: never process
+        // an aggregate larger than the bounded scan can legitimately emit.
+        var raw = String(lsStdout.text || "")
+        if (raw.length > 16777216) {
+          root.lastError = "scene scan output exceeded its ceiling"
+          return
+        }
         var next = []
-        var lines = String(lsStdout.text || "").split("\n")
+        var lines = raw.split("\n")
         for (var i = 0; i < lines.length; i++) {
           var line = lines[i]
           if (line.length === 0) continue
